@@ -151,8 +151,8 @@ pub struct NodeInfo{
     pub output_signals: Vec<usize>,
     pub signals: Vec<usize>, 
     pub is_custom: bool,
-    pub successors: Vec<usize> //ids of the successors 
-
+    pub successors: Vec<usize>, //ids of the successors 
+    pub predecessors: Vec<usize>, //ids of the predecessors, can be filled after building the structure
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -177,7 +177,7 @@ fn print_tree_info(
 
     let mut init_c = 0;
     let mut node_id = 0;
-    build_structure_nodes(&tree_constraints, &mut node_id, &mut init_c, &mut node_info, &mut equivalence_nodes, &mut init_constraint_to_node);
+    build_structure_nodes(&tree_constraints, &mut node_id, &mut init_c, &mut node_info, &mut equivalence_nodes, &mut init_constraint_to_node, None);
     let aux_timing = TimingInfo{
         graph_construction: 0.0,
         clustering: 0.0,
@@ -214,7 +214,8 @@ fn build_structure_nodes(
     init_c: &mut usize,
     node_info: &mut Vec<NodeInfo>,
     equivalence_nodes: &mut HashMap<usize, Vec<usize>>,
-    init_constraint_to_node: &mut BTreeMap<usize, String>
+    init_constraint_to_node: &mut BTreeMap<usize, String>,
+    predecessor: Option<usize>
 ) -> usize{
     
     let my_node_id = *node_id;
@@ -251,6 +252,12 @@ fn build_structure_nodes(
         signals.push(tree_constraints.initial_signal + i);
     } 
 
+    let predecessors = if predecessor.is_some(){
+        vec![predecessor.unwrap()]
+    } else{
+        Vec::new()
+    };
+
     let new_node = NodeInfo{
         node_id: my_node_id,
         constraints,
@@ -258,14 +265,15 @@ fn build_structure_nodes(
         output_signals,
         signals,
         is_custom: tree_constraints.is_custom,
-        successors: Vec::new()
+        successors: Vec::new(),
+        predecessors
     };
     node_info.push(new_node);
 
     let mut successors = Vec::new();
     for subcomponent in &tree_constraints.subcomponents{
         successors.push(
-            build_structure_nodes(subcomponent, node_id, init_c, node_info, equivalence_nodes, init_constraint_to_node)
+            build_structure_nodes(subcomponent, node_id, init_c, node_info, equivalence_nodes, init_constraint_to_node, Some(my_node_id))
         );
     }
     node_info[my_node_id].successors = successors;
