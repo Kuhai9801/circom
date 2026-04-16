@@ -1,4 +1,15 @@
 # Release notes
+## March 16, 2026 circom 2.2.4
+#### Extensions
+- New level for sanity_check option: level 3 adds out-of-bounds checks for any read or write access to an array both in the C and WASM witness generation code.
+
+#### Improvements
+- Improving documentation. 
+
+#### Fixed bugs
+- Fixed several issues in witness generation in C.
+- Fixing minor panic by detecting whether the expression of the main component contains tuples or anonymous component calls.
+- Fixing minor panic in the analysis of variable renaming.
 
 ## October 24, 2025 circom 2.2.3
 #### Extensions
