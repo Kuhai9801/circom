@@ -145,6 +145,7 @@ pub struct TimingInfo{
 
 #[derive(Deserialize,Serialize, Debug, Clone)]
 pub struct NodeInfo{
+    pub node_name: String,
     pub node_id: usize,
     pub constraints: Vec<usize>, //ids of the constraints
     pub input_signals: Vec<usize>,
@@ -259,6 +260,7 @@ fn build_structure_nodes(
     };
 
     let new_node = NodeInfo{
+        node_name: tree_constraints.template_name.clone(),
         node_id: my_node_id,
         constraints,
         input_signals,
