@@ -78,7 +78,7 @@ impl WriteWasm for CallBucket {
 
         // Check that the access does not generate an out of bounds exception.
         if producer.sanity_check_style >= 3{   
-            if &self.checks.len() > 0 && producer.needs_comments() {
+            if self.checks.len() > 0 && producer.needs_comments() {
                 instructions.push(";; adding out of bounds check".to_string());
             }
             for ob_check in &self.checks{    
@@ -98,7 +98,7 @@ impl WriteWasm for CallBucket {
                 instructions.push(add_return());
                 instructions.push(add_end());
             }
-            if &self.checks.len() > 0 && producer.needs_comments() {
+            if self.checks.len() > 0 && producer.needs_comments() {
                 instructions.push(";; finished out of bounds check".to_string());
             }
         }
