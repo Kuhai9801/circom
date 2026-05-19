@@ -30,6 +30,7 @@ pub struct TreeConstraints {
     pub initial_signal: usize,
     pub subcomponents: LinkedList<TreeConstraints>,
     pub is_custom: bool,
+    pub is_deterministic: bool,
 }
 
 
@@ -51,7 +52,7 @@ impl<'a> Tree<'a> {
         let field = constants.get_p().clone();
         let root = dag.get_main().unwrap();
         let node_id = dag.main_id();
-        let offset = dag.get_entry().unwrap().in_number;
+        let offset: usize = dag.get_entry().unwrap().in_number;
         let path = dag.get_entry().unwrap().label.clone();
         let constraints = root.constraints.clone();
         let mut id_to_name = HashMap::new();
@@ -168,6 +169,7 @@ pub struct Node {
     is_parallel: bool,
     has_parallel_sub_cmp: bool,
     is_custom_gate: bool,
+    is_deterministic: bool,
     number_of_subcomponents_indexes: usize,
 }
 
@@ -177,7 +179,8 @@ impl Node {
         template_name: String,
         parameters: Vec<BigInt>,
         is_parallel: bool,
-        is_custom_gate: bool
+        is_custom_gate: bool,
+        is_deterministic: bool,
     ) -> Node {
         Node {
             template_name, 
@@ -187,6 +190,7 @@ impl Node {
             is_parallel,
             has_parallel_sub_cmp: false,
             is_custom_gate,
+            is_deterministic,
             forbidden_if_main: vec![0].into_iter().collect(),
             ..Node::default()
         }
@@ -391,11 +395,12 @@ impl DAG {
         template_name: String,
         parameters: Vec<BigInt>,
         is_parallel: bool,
-        is_custom_gate: bool
+        is_custom_gate: bool,
+        is_deterministic: bool
     ) -> usize {
         let id = self.nodes.len();
         self.nodes.push(
-            Node::new(id, template_name, parameters, is_parallel, is_custom_gate)
+            Node::new(id, template_name, parameters, is_parallel, is_custom_gate, is_deterministic)
         );
         self.adjacency.push(vec![]);
         id

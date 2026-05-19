@@ -35,6 +35,7 @@ pub enum MemoryError {
     AssignmentTagInput,
     TagValueNotInitializedAccess,
     MissingInputs(String),
+    MissingOutputs(String),
     MultipleSizesInlineBuses,
     DifferentBusesInline
 }

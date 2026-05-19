@@ -84,7 +84,8 @@ pub struct ExecutedTemplate {
     pub underscored_signals: Vec<String>,
     connexions: Vec<Connexion>,
     pub bus_connexions: HashMap<String, BusConnexion>,
-    pub is_extern_c: bool
+    pub is_extern_c: bool,
+    pub is_deterministic: bool
 }
 
 impl ExecutedTemplate {
@@ -97,7 +98,7 @@ impl ExecutedTemplate {
         code: Statement,
         is_parallel: bool,
         is_custom_gate: bool,
-        is_extern_c: bool
+        is_extern_c: bool,
     ) -> ExecutedTemplate {
         let public_inputs: HashSet<_> = public.iter().cloned().collect();
 
@@ -123,7 +124,8 @@ impl ExecutedTemplate {
             connexions: Vec::new(),
             bus_connexions: HashMap::new(),
             underscored_signals: Vec::new(),
-            is_extern_c
+            is_extern_c, 
+            is_deterministic: false
         }
     }
 
@@ -219,6 +221,10 @@ impl ExecutedTemplate {
         self.underscored_signals.push(signal.to_string());
     }
 
+    pub fn set_is_deterministic(&mut self, is_deterministic: bool) {
+        self.is_deterministic = is_deterministic;
+    }
+
     pub fn template_name(&self) -> &String {
         &self.template_name
     }
@@ -259,7 +265,8 @@ impl ExecutedTemplate {
             self.report_name.clone(),
             parameters,
             self.is_parallel,
-            self.is_custom_gate
+            self.is_custom_gate,
+            self.is_deterministic
         );
         self.build_wires(dag, buses_info);
         self.build_ordered_signals(dag, buses_info);

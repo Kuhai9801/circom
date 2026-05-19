@@ -315,6 +315,10 @@ where
         self.signal_inputs.get_mut(symbol).unwrap()
     }
 
+    pub fn get_outputs_ref(&self) -> &HashMap<String, SC> {
+        &self.signal_outputs
+    }
+
     pub fn get_output(&self, symbol: &str) -> Option<&SC> {
         self.signal_outputs.get(symbol)
     }

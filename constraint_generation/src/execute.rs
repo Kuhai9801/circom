@@ -6,7 +6,8 @@ use super::environment_utils::{
         environment_shortcut_add_bus_output,
         environment_shortcut_add_variable, ExecutionEnvironment, ExecutionEnvironmentError,
         environment_check_all_components_assigned,
-        environment_get_value_tags_bus, environment_get_value_tags_signal
+        environment_get_value_tags_bus, environment_get_value_tags_signal,
+        environment_check_all_outputs_assigned
     
     },
     slice_types::{
@@ -19,7 +20,7 @@ use super::environment_utils::{
 use std::cmp;
 use program_structure::wire_data::WireType;
 use crate::{assignment_utils::*, environment_utils::slice_types::AssignmentState};
-
+use ansi_term::Colour;
 use crate::environment_utils::slice_types::BusTagInfo;
 use program_structure::constants::UsefulConstants;
 use program_structure::bus_data::BusData;
@@ -55,6 +56,8 @@ struct RuntimeInformation {
     pub environment: ExecutionEnvironment,
     pub exec_program: ExecutedProgram,
     pub anonymous_components: AnonymousComponentsInfo,
+
+    pub all_safe_assignments: bool,
 }
 impl RuntimeInformation {
     pub fn new(current_file: FileID, id_max: usize, prime: &String) -> RuntimeInformation {
@@ -71,6 +74,7 @@ impl RuntimeInformation {
             anonymous_components: AnonymousComponentsInfo::new(),
             conditions_state: Vec::new(),
             unknown_counter: 0,
+            all_safe_assignments: true,
         }
     }
 }
@@ -412,6 +416,10 @@ fn execute_statement(
 
 
             if let Option::Some(node) = actual_node {
+                if *op == AssignOp::AssignSignal{
+                    runtime.all_safe_assignments = false;
+                }
+
                 if *op == AssignOp::AssignConstraintSignal || (*op == AssignOp::AssignSignal && flags.inspect){
                     debug_assert!(possible_constraint.is_some());
                     
@@ -1306,6 +1314,7 @@ fn execute_call(
         let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
         let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
         let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
+        let previous_all_safe_assignments = runtime.all_safe_assignments;
 
         let new_file_id = program_archive.get_function_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
@@ -1315,6 +1324,7 @@ fn execute_call(
 
         runtime.environment = previous_environment;
         runtime.current_file = previous_id;
+        runtime.all_safe_assignments = previous_all_safe_assignments;
         runtime.block_type = previous_block_type;
         runtime.anonymous_components = previous_anonymous_components;
         runtime.call_trace.pop();
@@ -1338,6 +1348,7 @@ fn execute_template_call_complete(
         let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
         let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
         let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
+        let previous_all_safe_assignments = runtime.all_safe_assignments;
 
         let new_file_id = program_archive.get_template_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
@@ -1349,6 +1360,7 @@ fn execute_template_call_complete(
         runtime.current_file = previous_id;
         runtime.block_type = previous_block_type;
         runtime.anonymous_components = previous_anonymous_components;
+        runtime.all_safe_assignments = previous_all_safe_assignments;
         runtime.call_trace.pop();
         Ok(folded_result)
     } else { 
@@ -3428,7 +3440,7 @@ fn execute_template_call(
         let mut node_wrap = Option::Some(ExecutedTemplate::new(
             is_main,
             id.to_string(),
-            instantiation_name,
+            instantiation_name.clone(),
             args_to_values,
             tag_values,
             code,
@@ -3458,8 +3470,40 @@ fn execute_template_call(
             },
             Ok(_) => {},
         }
+
+        let is_deterministic = if flags.inspect{
+            let result_check_all_outputs_assigned = environment_check_all_outputs_assigned(&runtime.environment);
+            /* 
+            match result_check_all_outputs_assigned{
+                Err(error) =>{
+                    treat_result_with_memory_error_void(
+                        Err(error),
+                        &run,
+                        &mut runtime.runtime_errors,
+                        &runtime.call_trace,
+                    )?;
+                },
+                Ok(_) => {},
+            }
+            */
+            let is_safe = result_check_all_outputs_assigned.is_ok() && runtime.all_safe_assignments;
+            if is_safe{
+
+                let to_print = format!("The template {} has been verified as deterministic via syntactic analysis", instantiation_name );
+                println!("{} {}", Colour::Green.paint("*** INSPECT ANALYSIS: "), to_print);
+
+                
+                
+            }
+            is_safe
+            
+        } else{
+            false
+        };
+
         let mut new_node = node_wrap.unwrap();
 
+        new_node.set_is_deterministic(is_deterministic);
 
         // we add the tags to the executed template
         // TODO: improve and remove clone
@@ -4082,6 +4126,10 @@ fn treat_result_with_memory_error_void(
                     format!("Component {} is created but not all its inputs are initialized", name),
                     RuntimeError,
                 ),
+                MemoryError::MissingOutputs(name) => Report::warning(
+                    format!("The output signal {} might not be assigned", name),
+                    RuntimeError,
+                ),
                 MemoryError::MultipleSizesInlineBuses =>  Report::error(
                     format!("Arrays inlines of buses must have the same dimensions. Unexpected mistmached dimensions."),
                     RuntimeError,
@@ -4222,6 +4270,10 @@ pub fn treat_result_with_memory_error<C>(
                 },
                 MemoryError::MissingInputs(name) => Report::error(
                     format!("Component {} is created but not all its inputs are initialized", name),
+                    RuntimeError,
+                ),
+                MemoryError::MissingOutputs(name) => Report::warning(
+                    format!("The output signal {} might not be assigned", name),
                     RuntimeError,
                 ),
                 MemoryError::MultipleSizesInlineBuses =>  Report::error(

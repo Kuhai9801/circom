@@ -152,6 +152,7 @@ pub struct NodeInfo{
     pub output_signals: Vec<usize>,
     pub signals: Vec<usize>, 
     pub is_custom: bool,
+    pub is_deterministic: bool, // to add the info saying if the node is verified or not
     pub successors: Vec<usize>, //ids of the successors 
     pub predecessors: Vec<usize>, //ids of the predecessors, can be filled after building the structure
 }
@@ -266,6 +267,7 @@ fn build_structure_nodes(
         input_signals,
         output_signals,
         signals,
+        is_deterministic: tree_constraints.is_deterministic,
         is_custom: tree_constraints.is_custom,
         successors: Vec::new(),
         predecessors

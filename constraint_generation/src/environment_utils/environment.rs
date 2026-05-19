@@ -197,6 +197,31 @@ pub fn environment_check_all_components_assigned(environment: &ExecutionEnvironm
     Result::Ok(())
 }
 
+pub fn environment_check_all_outputs_assigned(environment: &ExecutionEnvironment)-> Result<(), MemoryError>{
+    use program_structure::memory_slice::MemorySlice;
+    use crate::environment_utils::slice_types::AssignmentState;
+    for (name, (_, slice)) in environment.get_outputs_ref(){
+        let signal_status = MemorySlice::access_values_by_reference(slice, &vec![]);
+        match signal_status{
+            Ok(signal_status) =>{
+                for status in signal_status{
+                    match status{
+                        AssignmentState::Assigned(_) =>{}
+                        _ => {
+                            return Result::Err(MemoryError::MissingOutputs(name.clone()));
+                        }
+                    }
+                }
+            }
+            Err(_) => {
+                unreachable!()
+            }
+        }
+        
+    }
+    Result::Ok(())
+}
+
 
 pub fn environment_get_value_tags_signal(environment: &ExecutionEnvironment, name: &String) -> Vec<(Vec<String>, BigInt)>{
     let mut to_add = Vec::new();
