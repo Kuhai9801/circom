@@ -204,6 +204,7 @@ pub fn environment_check_all_outputs_assigned(environment: &ExecutionEnvironment
         let signal_status = MemorySlice::access_values_by_reference(slice, &vec![]);
         match signal_status{
             Ok(signal_status) =>{
+
                 for status in signal_status{
                     match status{
                         AssignmentState::Assigned(_) =>{}

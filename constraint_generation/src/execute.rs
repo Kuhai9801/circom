@@ -692,9 +692,7 @@ fn execute_statement(
             possible_return
         }
         While { cond, stmt, .. } => {
-            // We update the conditions state of the execution
-            runtime.conditions_state.push((runtime.unknown_counter, true));
-            runtime.unknown_counter+=1;
+            
             loop {
 
                 let (returned, can_simplify, condition_result) = execute_conditional_statement(
@@ -723,8 +721,7 @@ fn execute_statement(
                 } else if !condition_result.unwrap() {
                     break returned;
                 }
-                // We remove the last conditions_state added
-                runtime.conditions_state.pop();
+
             }
         },
         Block { stmts, .. } => {
@@ -1314,7 +1311,9 @@ fn execute_call(
         let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
         let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
         let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
-        let previous_all_safe_assignments = runtime.all_safe_assignments;
+        let previous_all_safe_assignments = std::mem::replace(&mut runtime.all_safe_assignments, true);
+        let previous_conditions = std::mem::replace(&mut runtime.conditions_state, vec![]);
+
 
         let new_file_id = program_archive.get_function_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
@@ -1327,6 +1326,8 @@ fn execute_call(
         runtime.all_safe_assignments = previous_all_safe_assignments;
         runtime.block_type = previous_block_type;
         runtime.anonymous_components = previous_anonymous_components;
+        runtime.conditions_state = previous_conditions; 
+
         runtime.call_trace.pop();
         Ok(folded_result)
     } else { // in this case we preexecute and check if it needs tags
@@ -1348,7 +1349,9 @@ fn execute_template_call_complete(
         let previous_environment = std::mem::replace(&mut runtime.environment, new_environment);
         let previous_block_type = std::mem::replace(&mut runtime.block_type, BlockType::Known);
         let previous_anonymous_components = std::mem::replace(&mut runtime.anonymous_components, AnonymousComponentsInfo::new());
-        let previous_all_safe_assignments = runtime.all_safe_assignments;
+        let previous_all_safe_assignments = std::mem::replace(&mut runtime.all_safe_assignments, true);
+        let previous_conditions = std::mem::replace(&mut runtime.conditions_state, vec![]);
+
 
         let new_file_id = program_archive.get_template_data(id).get_file_id();
         let previous_id = std::mem::replace(&mut runtime.current_file, new_file_id);
@@ -1361,6 +1364,7 @@ fn execute_template_call_complete(
         runtime.block_type = previous_block_type;
         runtime.anonymous_components = previous_anonymous_components;
         runtime.all_safe_assignments = previous_all_safe_assignments;
+        runtime.conditions_state = previous_conditions;
         runtime.call_trace.pop();
         Ok(folded_result)
     } else { 
@@ -3373,14 +3377,10 @@ fn execute_function_call(
     flags: FlagsExecution
 ) -> Result<(FoldedValue, bool), ()> {
     use std::mem;
-    let previous_block = runtime.block_type;
-    let previous_conditions = mem::replace(&mut runtime.conditions_state, vec![]);
     runtime.block_type = BlockType::Known;
     let function_body = program_archive.get_function_data(id).get_body_as_vec();
     let (function_result, can_be_simplified) =
         execute_sequence_of_statements(function_body, program_archive, runtime, &mut Option::None, flags, true)?;
-    runtime.block_type = previous_block;
-    runtime.conditions_state = previous_conditions;
     let return_value = function_result.unwrap();
     debug_assert!(FoldedValue::valid_arithmetic_slice(&return_value));
     Result::Ok((return_value, can_be_simplified))
@@ -3430,12 +3430,16 @@ fn execute_template_call(
         instantiation_name.pop();
     }
     instantiation_name.push(')');
+    
     let existent_node = runtime.exec_program.identify_node(id, &args_to_values, &tag_values);
     let node_pointer = if let Option::Some(pointer) = existent_node {
         pointer
     } else {
         let analysis =
             std::mem::replace(&mut runtime.analysis, Analysis::new(program_archive.id_max));
+        let previous_conditions = std::mem::replace(&mut runtime.conditions_state, vec![]);
+        let previous_block = runtime.block_type;
+
         let code = program_archive.get_template_data(id).get_body().clone();
         let mut node_wrap = Option::Some(ExecutedTemplate::new(
             is_main,
@@ -3448,6 +3452,7 @@ fn execute_template_call(
             is_custom_gate,
             is_extern_c
         ));
+
         let (ret, _) = execute_sequence_of_statements(
             template_body,
             program_archive,
@@ -3486,7 +3491,9 @@ fn execute_template_call(
                 Ok(_) => {},
             }
             */
+
             let is_safe = result_check_all_outputs_assigned.is_ok() && runtime.all_safe_assignments;
+            
             if is_safe{
 
                 let to_print = format!("The template {} has been verified as deterministic via syntactic analysis", instantiation_name );
@@ -3519,7 +3526,8 @@ fn execute_template_call(
             }
         }   
         
-
+        runtime.conditions_state = previous_conditions;
+        runtime.block_type = previous_block;
         let analysis = std::mem::replace(&mut runtime.analysis, analysis);
         let node_pointer = runtime.exec_program.add_node_to_scheme(new_node, analysis);
         node_pointer
