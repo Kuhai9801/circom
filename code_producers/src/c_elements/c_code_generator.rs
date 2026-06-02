@@ -1336,7 +1336,7 @@ mod tests {
     }
 
     #[test]
-    fn generated_makefiles_define_long_long_gmp_limbs() {
+    fn generated_makefiles_pass_darwin_gmp_limb_flag() {
         let path = "../target/code_generator_makefile_test";
         let _ = std::fs::remove_dir_all(path);
         std::fs::create_dir(path).unwrap();
